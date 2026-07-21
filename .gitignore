@@ -1,3 +1,18 @@
 scrapbook/
 .planb/
 draft_architecture.md
+
+# Python (archivos compilados)
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs (VS Code, PyCharm)
+
+.vscode/
+.idea/
+
+# Streamlit (configuraciones locales)
+
+.streamlit/
