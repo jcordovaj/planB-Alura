@@ -51,11 +51,13 @@ sudo apt install nginx -y
 ```
 
 Creamos la configuración para el sitio de Streamlit:
+
 ```bash
 sudo nano /etc/nginx/sites-available/documind
 ```
 
 Agrega este bloque de código (reemplaza `tu-dominio.com` por el tuyo):
+
 ```nginx
 server {
     listen 80;
@@ -75,6 +77,7 @@ server {
 ```
 
 Habilita el sitio y reinicia Nginx:
+
 ```bash
 sudo ln -s /etc/nginx/sites-available/documind /etc/nginx/sites-enabled/
 sudo rm /etc/nginx/sites-enabled/default
@@ -82,6 +85,7 @@ sudo systemctl restart nginx
 ```
 
 Obtén tu certificado SSL gratuito con Certbot:
+
 ```bash
 sudo apt install certbot python3-certbot-nginx -y
 sudo certbot --nginx -d tu-dominio.com
@@ -104,8 +108,11 @@ pip install -r requirements.txt
 
 # 3. Crear el archivo .env con tus secretos
 nano .env
+
 ```
+
 Contenido de `.env`:
+
 ```env
 GEMINI_API_KEY="tu_clave_api_aquí"
 DB_HOST="localhost"
@@ -122,14 +129,3 @@ nohup streamlit run app.py --server.port 8501 --server.address 127.0.0.1 &
 ```
 
 ---
-
-
-
-Hazlo ejecutable y córrelo:
-
-```bash
-chmod +x git_push.sh
-./git_push.sh
-```
-
-Esto dejará tu repositorio en GitHub con un historial de commits sumamente profesional, modular y ordenado, demostrando excelencia en el desarrollo paso a paso del MVP.
