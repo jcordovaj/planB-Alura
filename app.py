@@ -1,132 +1,144 @@
 import streamlit as st
 import os
 import gc
-from langchain.chains import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferWindowMemory
-from langchain_community.vectorstores import PGVector
-from langchain_google_genai import GoogleGenAIEmbeddings, ChatGoogleGenAI
+import psycopg2
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
 
-# Configuración de página con optimización de memoria
+# Configuración de la interfaz Streamlit con optimización de memoria
 st.set_page_config(
-    page_title="DocuMind RAG Assistant",
+    page_title="AsisMind RAG Assistant MVP",
     page_icon="🤖",
     layout="centered"
 )
 
-# Constantes de control y mensaje fuera de dominio
+# Constante del mensaje de rechazo estándar para el Guardrail estricto de dominio
 OUT_OF_DOMAIN_REFUSAL = "Su pregunta está fuera del alcance de este servicio asistencial. ¿Puedo ayudarle con otra pregunta relacionada con los documentos internos?"
 
-# Lazy Loading de Recursos para ahorrar RAM en OCI Compute (1GB max)
-@st.cache_resource(ttl="1h")
-def init_rag_system():
-    """Inicializa de forma diferida los embeddings, el LLM y la conexión a pgvector"""
+# Inicialización segura de las credenciales de API
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+if not GEMINI_API_KEY:
+    st.error("🚨 **Error de Configuración**: La variable de entorno `GEMINI_API_KEY` no está configurada.")
+    st.stop()
+
+# Configurar el SDK oficial de Google Generative AI
+genai.configure(api_key=GEMINI_API_KEY)
+
+# Recuperación de datos desde OCI PostgreSQL de manera 100% nativa (libre de LangChain)
+def retrieve_relevant_chunks(user_query, k=3):
     try:
-        # Usar embeddings livianos del API de Gemini (gratuita)
-        embeddings = GoogleGenAIEmbeddings(
+        # 1. Generar embedding de la consulta usando la API oficial
+        response = genai.embed_content(
             model="models/text-embedding-004",
-            google_api_key=os.getenv("GEMINI_API_KEY")
+            contents=user_query,
+            task_type="retrieval_query"
         )
+        query_embedding = response['embedding']
         
-        # Conexión a pgvector en PostgreSQL
-        connection_string = PGVector.connection_string_from_db_params(
-            driver="psycopg2",
+        # 2. Conexión nativa a la base de datos de OCI PostgreSQL
+        conn = psycopg2.connect(
             host=os.getenv("DB_HOST", "localhost"),
             port=int(os.getenv("DB_PORT", 5432)),
             database=os.getenv("DB_NAME", "ragdb"),
             user=os.getenv("DB_USER", "postgres"),
             password=os.getenv("DB_PASSWORD", "postgres")
         )
+        cursor = conn.cursor()
         
-        vectorstore = PGVector(
-            connection_string=connection_string,
-            embedding_function=embeddings,
-            collection_name="doc_knowledge"
+        # Formatear el vector para pgvector
+        vector_str = "[" + ",".join(map(str, query_embedding)) + "]"
+        
+        # Consulta semántica directa usando el operador de distancia de coseno <=> de pgvector
+        cursor.execute(
+            """
+            SELECT document 
+            FROM langchain_pg_embedding 
+            ORDER BY embedding <=> %s 
+            LIMIT %s;
+            """,
+            (vector_str, k)
         )
+        rows = cursor.fetchall()
         
-        # Modelo gratuito en cascada (Gemini 1.5 Flash o Gemini 2.5 Flash)
-        llm = ChatGoogleGenAI(
-            model="gemini-1.5-flash",
-            temperature=0.1,  # Temperatura ultra-baja para evitar alucinaciones
-            google_api_key=os.getenv("GEMINI_API_KEY")
-        )
+        cursor.close()
+        conn.close()
         
-        # Retornar configuraciones básicas de forma atómica
-        return vectorstore.as_retriever(search_kwargs={"k": 3}), llm
+        # Retornar los fragmentos de texto
+        return [row[0] for row in rows]
     except Exception as e:
-        st.error(f"Error al inicializar infraestructura RAG: {e}")
-        return None, None
+        st.error(f"⚠️ Error de base de datos o recuperación vectorial: {e}")
+        return []
 
-retriever, llm = init_rag_system()
+# Generación nativa de respuestas con Gemini 2.5 Flash
+def generate_response(system_prompt, user_query):
+    try:
+        model = genai.GenerativeModel(
+            model_name="gemini-2.5-flash",
+            generation_config={"temperature": 0.1}  # Ultra-bajo para máxima fidelidad
+        )
+        full_prompt = f"{system_prompt}\n\nPregunta del usuario: {user_query}"
+        response = model.generate_content(full_prompt)
+        return response.text
+    except Exception as e:
+        return f"🚨 Error en la API de inferencia de Gemini: {e}"
 
-# Título y Contexto de la Aplicación
-st.title("🤖 Asistente Documental DocuMind")
-st.caption("Filtros de Seguridad Inteligentes • Desplegado exitosamente en OCI Compute")
+# Encabezado visual de la interfaz Streamlit
+st.title("🤖 Challenge Alura/OCI - Chatbot Inteligente - AsisMind")
+st.caption("Filtros de Seguridad Inteligentes • Desplegado en OCI Compute • 100% Nativo sin Dependencias de LangChain")
 
-# Inicializar historial de chat en sesión Streamlit
+# Inicialización de historial de chat con memoria persistente por sesión
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Bienvenido al chatbot corporativo de DocuMind. Pregúntame únicamente sobre manuales, políticas de recursos humanos u reportes internos cargados."}
+        {"role": "assistant", "content": "Bienvenido al asistente de conocimiento interno de AsisMind. He indexado tus manuales, políticas y reportes. Pregúntame lo que necesites sobre los documentos corporativos cargados."}
     ]
 
-# Renderizar historial de mensajes
+# Renderizar el historial de conversación en la pantalla de Streamlit
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
 # Captura de preguntas de usuario
-if user_query := st.chat_input("Escribe tu pregunta sobre los documentos internos..."):
-    # Renderizar pregunta del usuario
+if user_query := st.chat_input("Escribe tu consulta sobre los documentos..."):
+    # Renderizar la pregunta del usuario en el chat
     with st.chat_message("user"):
         st.markdown(user_query)
     st.session_state.messages.append({"role": "user", "content": user_query})
     
-    # Procesamiento y búsqueda RAG
+    # Procesar la respuesta a través del pipeline RAG con Guardrails Strict Mode
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
         
-        if not retriever or not llm:
-            error_msg = "La base de datos o el servicio LLM no están disponibles temporalmente."
-            message_placeholder.markdown(error_msg)
-            st.session_state.messages.append({"role": "assistant", "content": error_msg})
-        else:
-            try:
-                # 1. Recuperar contexto relevante usando lazy generator para evitar memory leak
-                relevant_docs = retriever.get_relevant_documents(user_query)
-                
-                # Crear el prompt contextual defensivo con Guardrails estrictos
-                context = "\n\n".join([doc.page_content for doc in relevant_docs])
-                
-                system_prompt = f"""
-                Eres un asistente de IA corporativo y estrictamente restringido.
-                Tu tarea es responder a la pregunta del usuario utilizando ÚNICAMENTE el siguiente contexto corporativo recuperado del sistema de archivos RAG:
-                
-                CONTEXTO:
-                {context}
-                
-                REGLA DE GUARDRAIL CRÍTICA:
-                - Responde ÚNICAMENTE si la respuesta está directamente en el contexto anterior.
-                - Si la pregunta no se puede responder directamente basándose en el contexto provisto (por ejemplo, preguntas generales, fútbol, recetas, chistes, desarrollo web general o temas no cubiertos en el contexto), debes contestar EXACTAMENTE con el siguiente mensaje de rechazo:
-                  "{OUT_OF_DOMAIN_REFUSAL}"
-                - No inventes, especules ni alucines datos. Mantente profesional y formal.
-                """
-                
-                # Invocar de forma defensiva
-                full_query = f"{system_prompt}\n\nPregunta del usuario: {user_query}"
-                response = llm.invoke(full_query)
-                answer = response.content
-                
-                # Mostrar respuesta en tiempo real
-                message_placeholder.markdown(answer)
-                st.session_state.messages.append({"role": "assistant", "content": answer})
-                
-                # Fuerza la recolección de basura después de cada inferencia para ahorrar RAM
-                gc.collect()
-                
-            except Exception as e:
-                err_msg = f"Error al procesar la respuesta: {str(e)}"
-                message_placeholder.markdown(err_msg)
-                st.session_state.messages.append({"role": "assistant", "content": err_msg})
+        # 1. Recuperar contexto semántico nativo usando pgvector
+        relevant_chunks = retrieve_relevant_chunks(user_query, k=3)
+        
+        # Consolidar los fragmentos recuperados
+        context = "\n\n".join(relevant_chunks) if relevant_chunks else "No se encontraron fragmentos relevantes."
+        
+        # Definición del prompt restrictivo con regla estricta de no alucinación (Guardrails)
+        system_prompt = f"""
+        Eres un asistente de IA corporativo ultra-restringido para consulta de documentos internos.
+        Tu tarea es responder a la pregunta del usuario utilizando ÚNICAMENTE la información del contexto provisto:
+        
+        CONTEXTO:
+        {context}
+        
+        REGLAS CRÍTICAS DE GUARDRAILS:
+        - Responde ÚNICAMENTE basándote en el contexto anterior.
+        - Si la pregunta NO se puede responder de manera directa con los datos provistos en el contexto (por ejemplo, temas ajenos a la empresa, chistes, deportes, cultura general o información histórica que no esté en los documentos), debes rechazar la respuesta EXACTAMENTE con este mensaje:
+          "{OUT_OF_DOMAIN_REFUSAL}"
+        - No inventes, deduzcas ni supongas datos. La precisión de los datos y el rechazo estricto fuera de dominio son obligatorios.
+        """
+        
+        # 2. Generar respuesta utilizando el SDK nativo
+        answer = generate_response(system_prompt, user_query)
+        
+        # Mostrar respuesta final en la pantalla
+        message_placeholder.markdown(answer)
+        st.session_state.messages.append({"role": "assistant", "content": answer})
+        
+        # Forzar recolección de basura para conservar la RAM en la VM de OCI
+        gc.collect()
