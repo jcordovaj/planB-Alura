@@ -1,9 +1,9 @@
 scrapbook/
 .planb/
 draft_architecture.md
+.env
 
 # Python (archivos compilados)
-
 __pycache__/
 *.py[cod]
 *$py.class
