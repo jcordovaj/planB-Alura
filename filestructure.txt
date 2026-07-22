@@ -27069,6 +27069,7 @@
         |-- BancoDigital_Politica_de_Privacidad.pdf
     |-- inbox
     |-- storage_binario
+|-- embeddings.py
 |-- ingest.py
 |-- LICENSE
 |-- README.md
@@ -27079,6 +27080,7 @@
     |-- draft_architecture.md
     |-- inbox
     |-- older_scripts
+        |-- app01.txt
         |-- ingest01.txt
     |-- processed
         |-- BancoDigital_Política_de_Privacidad.md

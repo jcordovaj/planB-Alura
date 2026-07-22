@@ -10,7 +10,7 @@ import json
 # Inicializar dotenv al principio
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -170,17 +170,39 @@ def main():
     genai.configure(api_key=api_key)
     
     # Calcular embeddings en lotes para optimizar llamadas a la API
-    log("Generando embeddings con la API oficial de Google Gemini (models/text-embedding-004)...")
+    log("Generando embeddings con la API oficial de Google Gemini...")
     embeddings = []
     batch_size = 50
+    # Intentamos primero text-embedding-004. Si falla en el primer lote, usaremos embedding-001 de forma automática.
+    use_fallback_model = False
+    
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i+batch_size]
         try:
-            response = genai.embed_content(
-                model="models/text-embedding-004",
-                contents=batch,
-                task_type="retrieval_document"
-            )
+            if use_fallback_model:
+                response = genai.embed_content(
+                    model="models/embedding-001",
+                    content=batch,
+                    task_type="retrieval_document"
+                )
+            else:
+                try:
+                    response = genai.embed_content(
+                        model="models/text-embedding-004",
+                        content=batch,
+                        task_type="retrieval_document"
+                    )
+                except Exception as e_004:
+                    if "not found" in str(e_004).lower() or "not supported" in str(e_004).lower() or "400" in str(e_004).lower() or "404" in str(e_004).lower():
+                        log(f"Advertencia: models/text-embedding-004 no está disponible ({e_004}). Activando fallback automático a models/embedding-001...")
+                        use_fallback_model = True
+                        response = genai.embed_content(
+                            model="models/embedding-001",
+                            content=batch,
+                            task_type="retrieval_document"
+                        )
+                    else:
+                        raise e_004
             embeddings.extend(response['embedding'])
         except Exception as e:
             log(f"Error al generar embeddings para el lote {i}: {e}")
@@ -238,11 +260,24 @@ def main():
             )
             log(f"Nueva colección creada: {collection_name} (UUID: {collection_id})")
             
-        # 2. Insertar fragmentos y vectores
-        log("Cargando vectores a PostgreSQL con pgvector...")
+        # 2. Evitar duplicación de fragmentos del mismo archivo (Garantizar Idempotencia)
+        source_filename = os.path.basename(doc_path)
+        log(f"Aplicando estrategia de idempotencia: Eliminando fragmentos previos para '{source_filename}'...")
+        cursor.execute(
+            """
+            DELETE FROM langchain_pg_embedding 
+            WHERE collection_id = %s AND cmetadata->>'source' = %s;
+            """,
+            (collection_id, source_filename)
+        )
+        deleted_rows = cursor.rowcount
+        log(f"Se eliminaron {deleted_rows} fragmentos antiguos con éxito.")
+
+        # 3. Insertar fragmentos y vectores
+        log("Cargando nuevos vectores a PostgreSQL con pgvector...")
         for text, embedding in zip(chunks, embeddings):
             embedding_id = str(uuid.uuid4())
-            cmetadata = json.dumps({"source": os.path.basename(doc_path)})
+            cmetadata = json.dumps({"source": source_filename})
             vector_str = "[" + ",".join(map(str, embedding)) + "]"
             
             cursor.execute(

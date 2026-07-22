@@ -6,11 +6,11 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 
 # Cargar variables de entorno
-load_dotenv()
+load_dotenv(override=True)
 
 # Configuración de la interfaz Streamlit con optimización de memoria
 st.set_page_config(
-    page_title="AsisMind RAG Assistant MVP",
+    page_title="DocuMind RAG Assistant MVP",
     page_icon="🤖",
     layout="centered"
 )
@@ -34,7 +34,7 @@ def retrieve_relevant_chunks(user_query, k=3):
         # 1. Generar embedding de la consulta usando la API oficial
         response = genai.embed_content(
             model="models/text-embedding-004",
-            contents=user_query,
+            content=user_query,
             task_type="retrieval_query"
         )
         query_embedding = response['embedding']
@@ -87,13 +87,13 @@ def generate_response(system_prompt, user_query):
         return f"🚨 Error en la API de inferencia de Gemini: {e}"
 
 # Encabezado visual de la interfaz Streamlit
-st.title("🤖 Challenge Alura/OCI - Chatbot Inteligente - AsisMind")
+st.title("🤖 Chatbot Inteligente - DocuMind")
 st.caption("Filtros de Seguridad Inteligentes • Desplegado en OCI Compute • 100% Nativo sin Dependencias de LangChain")
 
 # Inicialización de historial de chat con memoria persistente por sesión
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Bienvenido al asistente de conocimiento interno de AsisMind. He indexado tus manuales, políticas y reportes. Pregúntame lo que necesites sobre los documentos corporativos cargados."}
+        {"role": "assistant", "content": "Bienvenido al asistente de conocimiento interno de DocuMind. He indexado tus manuales, políticas y reportes. Pregúntame lo que necesites sobre los documentos corporativos cargados."}
     ]
 
 # Renderizar el historial de conversación en la pantalla de Streamlit
@@ -142,3 +142,4 @@ if user_query := st.chat_input("Escribe tu consulta sobre los documentos..."):
         
         # Forzar recolección de basura para conservar la RAM en la VM de OCI
         gc.collect()
+        
