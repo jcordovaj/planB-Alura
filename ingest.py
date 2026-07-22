@@ -3,14 +3,16 @@ import gc
 import sys
 import uuid
 import json
-import pandas as pd
-import psycopg2
-from pypdf import PdfReader
-from docx import Document as DocxReader
-import google.generativeai as genai
-from dotenv import load_dotenv
 
-load_dotenv()
+# No importamos pypdf, docx o pandas de forma global para evitar ModuleNotFoundError si no se usan.
+# Se importarán de manera perezosa (lazy) dentro de cada función.
+
+# Inicializar dotenv al principio
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 # Logger simple para salida en consola de OCI Compute
 def log(msg):
@@ -27,6 +29,12 @@ def extract_text_from_markdown(md_path):
 # Lector de PDFs optimizado (Lazy Loading página por página para evitar desborde de memoria)
 def extract_text_from_pdf(pdf_path):
     log(f"Iniciando extracción defensiva de PDF: {pdf_path}")
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        log("Error: La librería 'pypdf' no está instalada. Por favor, corre: pip install pypdf")
+        sys.exit(1)
+        
     reader = PdfReader(pdf_path)
     total_pages = len(reader.pages)
     for idx, page in enumerate(reader.pages):
@@ -39,6 +47,12 @@ def extract_text_from_pdf(pdf_path):
 # Lector de DOCX defensivo
 def extract_text_from_docx(docx_path):
     log(f"Leyendo documento Word: {docx_path}")
+    try:
+        from docx import Document as DocxReader
+    except ImportError:
+        log("Error: La librería 'python-docx' no está instalada. Por favor, corre: pip install python-docx")
+        sys.exit(1)
+        
     doc = DocxReader(docx_path)
     for idx, para in enumerate(doc.paragraphs):
         if para.text.strip():
@@ -49,6 +63,12 @@ def extract_text_from_docx(docx_path):
 # Lector de CSV por fragmentos para evitar saturación de memoria
 def extract_text_from_csv(csv_path):
     log(f"Procesando archivo de datos CSV por bloques: {csv_path}")
+    try:
+        import pandas as pd
+    except ImportError:
+        log("Error: La librería 'pandas' no está instalada. Por favor, corre: pip install pandas")
+        sys.exit(1)
+        
     for chunk in pd.read_csv(csv_path, chunksize=100):
         for index, row in chunk.iterrows():
             row_str = " | ".join([f"{col}: {val}" for col, val in row.items()])
@@ -136,9 +156,15 @@ def main():
         sys.exit(0)
         
     # Inicializar la API de Gemini
+    try:
+        import google.generativeai as genai
+    except ImportError:
+        log("Error: La librería 'google-generativeai' no está instalada. Por favor, corre: pip install google-generativeai")
+        sys.exit(1)
+
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        log("Error: La variable de entorno GEMINI_API_KEY no está definida.")
+        log("Error: La variable de entorno GEMINI_API_KEY no está definida en tu .env o variables de entorno.")
         sys.exit(1)
     
     genai.configure(api_key=api_key)
@@ -163,14 +189,32 @@ def main():
     log(f"Se calcularon {len(embeddings)} vectores con éxito.")
     
     # Conexión nativa a PostgreSQL usando psycopg2
-    log("Estableciendo conexión nativa a la Base de Datos PostgreSQL de OCI...")
+    try:
+        import psycopg2
+    except ImportError:
+        log("Error: La librería 'psycopg2' o 'psycopg2-binary' no está instalada. Por favor, corre: pip install psycopg2-binary")
+        sys.exit(1)
+
+    db_host = os.getenv("DB_HOST", "localhost")
+    db_port = int(os.getenv("DB_PORT", 5432))
+    db_name = os.getenv("DB_NAME", "ragdb")
+    db_user = os.getenv("DB_USER", "postgres")
+    db_pass = os.getenv("DB_PASSWORD", "postgres")
+
+    log("Intentando conectar a PostgreSQL con los siguientes parámetros:")
+    log(f"  - Host: {db_host}")
+    log(f"  - Puerto: {db_port}")
+    log(f"  - Base de Datos: {db_name}")
+    log(f"  - Usuario: {db_user}")
+    log(f"  - Contraseña configurada: {'SÍ (oculta por seguridad)' if db_pass else 'NO (vacía)'}")
+
     try:
         conn = psycopg2.connect(
-            host=os.getenv("DB_HOST", "localhost"),
-            port=int(os.getenv("DB_PORT", 5432)),
-            database=os.getenv("DB_NAME", "ragdb"),
-            user=os.getenv("DB_USER", "postgres"),
-            password=os.getenv("DB_PASSWORD", "postgres")
+            host=db_host,
+            port=db_port,
+            database=db_name,
+            user=db_user,
+            password=db_pass
         )
         cursor = conn.cursor()
     except Exception as e:

@@ -2,6 +2,18 @@
 |-- .gitattributes
 |-- .gitignore
 |-- .planb
+    |-- docx-template
+        |-- docProps
+            |-- thumbnail.jpeg
+        |-- word
+            |-- fontTable.xml
+            |-- numbering.xml
+            |-- settings.xml
+            |-- styles.xml
+            |-- theme
+                |-- theme1.xml
+        |-- _rels
+            |-- .rels
     |-- etc
         |-- jupyter
             |-- nbconfig
@@ -1269,6 +1281,14 @@
                     |-- table.cpython-311.pyc
                     |-- types.cpython-311.pyc
                     |-- __init__.cpython-311.pyc
+            |-- docx-0.2.4.dist-info
+                |-- INSTALLER
+                |-- METADATA
+                |-- RECORD
+                |-- REQUESTED
+                |-- top_level.txt
+                |-- WHEEL
+            |-- docx.py
             |-- dotenv
                 |-- cli.py
                 |-- ipython.py
@@ -27000,6 +27020,7 @@
                 |-- __pycache__
                     |-- __init__.cpython-311.pyc
             |-- __pycache__
+                |-- docx.cpython-311.pyc
                 |-- google_auth_httplib2.cpython-311.pyc
                 |-- jsonpatch.cpython-311.pyc
                 |-- jsonpointer.cpython-311.pyc
@@ -27048,6 +27069,7 @@
         |-- BancoDigital_Politica_de_Privacidad.pdf
     |-- inbox
     |-- storage_binario
+|-- ingest.py
 |-- LICENSE
 |-- README.md
 |-- req2.txt
@@ -27056,16 +27078,16 @@
     |-- conversor_pdf2md.py
     |-- draft_architecture.md
     |-- inbox
+    |-- older_scripts
+        |-- ingest01.txt
     |-- processed
         |-- BancoDigital_Política_de_Privacidad.md
     |-- readme2.md
     |-- scrapbook
         |-- inbox
         |-- processed
-|-- scripts
-    |-- schema.sql
 |-- src
-    |-- ingest
-        |-- ingest.py
+    |-- scripts
+        |-- schema.sql
     |-- tools
         |-- google.py
