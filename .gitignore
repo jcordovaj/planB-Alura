@@ -2,6 +2,7 @@ scrapbook/
 .planb/
 draft_architecture.md
 .env
+filestructure.txt
 
 # Python (archivos compilados)
 __pycache__/
