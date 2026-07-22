@@ -27044,9 +27044,10 @@
                     |-- index.js.map
 |-- app.py
 |-- data
+    |-- docs_prueba
+        |-- BancoDigital_Politica_de_Privacidad.pdf
     |-- inbox
     |-- storage_binario
-        |-- BancoDigital_Politica_de_Privacidad.pdf
 |-- LICENSE
 |-- README.md
 |-- req2.txt
@@ -27061,6 +27062,8 @@
     |-- scrapbook
         |-- inbox
         |-- processed
+|-- scripts
+    |-- schema.sql
 |-- src
     |-- ingest
         |-- ingest.py
