@@ -10,13 +10,16 @@ load_dotenv(override=True)
 
 # Configuración de la interfaz Streamlit con optimización de memoria
 st.set_page_config(
-    page_title="DocuMind RAG Assistant MVP",
+    page_title="AsisMind MVP RAG Based Intelligent Assistant",
     page_icon="🤖",
     layout="centered"
 )
 
 # Constante del mensaje de rechazo estándar para el Guardrail estricto de dominio
 OUT_OF_DOMAIN_REFUSAL = "Su pregunta está fuera del alcance de este servicio asistencial. ¿Puedo ayudarle con otra pregunta relacionada con los documentos internos?"
+
+# Importar el helper de embeddings resiliente
+from embeddings import get_embeddings
 
 # Inicialización segura de las credenciales de API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
@@ -31,13 +34,8 @@ genai.configure(api_key=GEMINI_API_KEY)
 # Recuperación de datos desde OCI PostgreSQL de manera 100% nativa (libre de LangChain)
 def retrieve_relevant_chunks(user_query, k=3):
     try:
-        # 1. Generar embedding de la consulta usando la API oficial
-        response = genai.embed_content(
-            model="models/text-embedding-004",
-            content=user_query,
-            task_type="retrieval_query"
-        )
-        query_embedding = response['embedding']
+        # 1. Generar embedding de la consulta usando la estrategia de cascada resiliente
+        query_embedding = get_embeddings(user_query, is_query=True)
         
         # 2. Conexión nativa a la base de datos de OCI PostgreSQL
         conn = psycopg2.connect(
@@ -87,13 +85,13 @@ def generate_response(system_prompt, user_query):
         return f"🚨 Error en la API de inferencia de Gemini: {e}"
 
 # Encabezado visual de la interfaz Streamlit
-st.title("🤖 Chatbot Inteligente - DocuMind")
-st.caption("Filtros de Seguridad Inteligentes • Desplegado en OCI Compute • 100% Nativo sin Dependencias de LangChain")
+st.title("🤖 AsisMind MVP")
+st.caption("Alura Challenge - RAG Based Intelligent Assistant")
 
 # Inicialización de historial de chat con memoria persistente por sesión
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Bienvenido al asistente de conocimiento interno de DocuMind. He indexado tus manuales, políticas y reportes. Pregúntame lo que necesites sobre los documentos corporativos cargados."}
+        {"role": "assistant", "content": "Bienvenido al asistente de conocimiento empresarial AsisMind. He indexado tus manuales, políticas y reportes. Pregúntame lo que necesites sobre las Políticas de Privacidad de DigitalBank."}
     ]
 
 # Renderizar el historial de conversación en la pantalla de Streamlit
@@ -102,7 +100,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # Captura de preguntas de usuario
-if user_query := st.chat_input("Escribe tu consulta sobre los documentos..."):
+if user_query := st.chat_input("Escribe tu consulta sobre las Políticas de Privacidad..."):
     # Renderizar la pregunta del usuario en el chat
     with st.chat_message("user"):
         st.markdown(user_query)
@@ -116,7 +114,7 @@ if user_query := st.chat_input("Escribe tu consulta sobre los documentos..."):
         relevant_chunks = retrieve_relevant_chunks(user_query, k=3)
         
         # Consolidar los fragmentos recuperados
-        context = "\n\n".join(relevant_chunks) if relevant_chunks else "No se encontraron fragmentos relevantes."
+        context = "\n\n".join(relevant_chunks) if relevant_chunks else "No se encontró información relevante."
         
         # Definición del prompt restrictivo con regla estricta de no alucinación (Guardrails)
         system_prompt = f"""
@@ -129,7 +127,7 @@ if user_query := st.chat_input("Escribe tu consulta sobre los documentos..."):
         REGLAS CRÍTICAS DE GUARDRAILS:
         - Responde ÚNICAMENTE basándote en el contexto anterior.
         - Si la pregunta NO se puede responder de manera directa con los datos provistos en el contexto (por ejemplo, temas ajenos a la empresa, chistes, deportes, cultura general o información histórica que no esté en los documentos), debes rechazar la respuesta EXACTAMENTE con este mensaje:
-          "{OUT_OF_DOMAIN_REFUSAL}"
+            "{OUT_OF_DOMAIN_REFUSAL}"
         - No inventes, deduzcas ni supongas datos. La precisión de los datos y el rechazo estricto fuera de dominio son obligatorios.
         """
         

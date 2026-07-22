@@ -1,0 +1,25 @@
+Preguntas de prueba para ASISMIND
+
+a. Preguntas correctas (deben responderse con el documento)
+1. ¿Cuál es el objetivo principal de la Política de Privacidad y Protección de Datos Personales del Banco de Chile?
+2. ¿Qué leyes se mencionan como fundamento legal de esta política?
+3. ¿Quién es el responsable del tratamiento de los datos personales y cuál es su dirección?
+4. ¿Qué se entiende por "datos personales sensibles" según la política?
+5. ¿Qué tipos de datos personales recopila el Banco de Chile sobre sus clientes?
+6. ¿Cuáles son las principales finalidades del tratamiento de datos personales?
+7. ¿De qué fuentes puede obtener el Banco de Chile los datos personales de sus clientes?
+8. ¿En qué casos el Banco de Chile puede compartir datos personales con terceros?
+9. ¿Cuáles son los Derechos ARCO mencionados en la política?
+10. ¿Cómo puede un titular ejercer sus Derechos ARCO según el documento?
+
+b. Preguntas incorrectas (el chatbot NO debería responder con información inventada)
+1. ¿Cuál es el porcentaje de disponibilidad (SLA) que garantiza Banco de Chile para sus plataformas digitales?
+2. ¿Qué proveedor de servicios en la nube utiliza Banco de Chile para almacenar los datos personales?
+3. ¿Cuál es el tiempo máximo, expresado en años, que el Banco conserva los datos personales de todos sus clientes?
+4. ¿Qué algoritmo de cifrado utiliza el Banco de Chile para proteger la información almacenada?
+5. ¿Cuál es el número de empleados que integran el equipo de ciberseguridad del Banco?
+6. ¿Qué certificación internacional ISO específica posee el Banco de Chile para la gestión de privacidad de datos?
+7. ¿Cuál es el procedimiento técnico para recuperar una contraseña olvidada de la banca en línea?
+8. ¿Cuál es el monto de la multa que recibe un trabajador que incumple la política de privacidad?
+9. ¿En qué país se encuentran físicamente los servidores donde el Banco almacena los datos personales?
+10. ¿Qué empresa externa realiza las auditorías de privacidad del Banco de Chile y con qué frecuencia exacta?

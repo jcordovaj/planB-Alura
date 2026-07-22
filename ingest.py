@@ -153,59 +153,54 @@ def main():
     
     if not chunks:
         log("Advertencia: El documento está vacío o no contiene texto legible.")
-        sys.exit(0)
-        
-    # Inicializar la API de Gemini
+            # Inicializar la API de Gemini (con diagnóstico pero sin salida forzada si falla)
     try:
         import google.generativeai as genai
-    except ImportError:
-        log("Error: La librería 'google-generativeai' no está instalada. Por favor, corre: pip install google-generativeai")
-        sys.exit(1)
+        api_key = os.getenv("GEMINI_API_KEY")
+        if api_key:
+            genai.configure(api_key=api_key)
+            try:
+                available_models = [m.name for m in genai.list_models()]
+                log(f"Modelos disponibles en tu proyecto: {available_models}")
+            except Exception as list_err:
+                log("---------------------------------------------------------------------------------")
+                log("🚨 [DIAGNÓSTICO] No se pudieron listar los modelos con tu API Key de Gemini actual.")
+                log("Causa más probable: Tu clave API fue generada en Google Cloud Console y")
+                log("la 'Generative Language API' (API de Lenguaje Generativo) está deshabilitada.")
+                log("")
+                log("👉 CÓMO SOLUCIONARLO:")
+                log("Opción A (Recomendada): Genera una nueva clave directamente desde Google AI Studio:")
+                log("   https://aistudio.google.com/ -> Click en 'Get API Key' -> 'Create API Key'.")
+                log("")
+                log("Opción B (Desde Google Cloud Console):")
+                log("   1. Entra a https://console.cloud.google.com/apis/library")
+                log("   2. Busca 'Generative Language API' y actívala.")
+                log("---------------------------------------------------------------------------------")
+                log("💡 El sistema intentará continuar de forma automática usando la cascada de fallbacks.")
+        else:
+            log("Advertencia: GEMINI_API_KEY no está configurada. El sistema recurrirá a Cohere o Hugging Face.")
+    except Exception as gemini_init_err:
+        log(f"No se pudo inicializar Gemini: {gemini_init_err}. Se usarán los proveedores de fallback.")
 
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        log("Error: La variable de entorno GEMINI_API_KEY no está definida en tu .env o variables de entorno.")
+    # Importar el helper resiliente de embeddings
+    try:
+        from embeddings import get_embeddings
+    except ImportError:
+        log("Error: No se pudo importar 'get_embeddings' de 'embeddings.py'")
         sys.exit(1)
-    
-    genai.configure(api_key=api_key)
     
     # Calcular embeddings en lotes para optimizar llamadas a la API
-    log("Generando embeddings con la API oficial de Google Gemini...")
+    log("Generando embeddings con estrategia de cascada resiliente (Gemini -> Cohere -> Hugging Face)...")
     embeddings = []
     batch_size = 50
-    # Intentamos primero text-embedding-004. Si falla en el primer lote, usaremos embedding-001 de forma automática.
-    use_fallback_model = False
     
     for i in range(0, len(chunks), batch_size):
         batch = chunks[i:i+batch_size]
         try:
-            if use_fallback_model:
-                response = genai.embed_content(
-                    model="models/embedding-001",
-                    content=batch,
-                    task_type="retrieval_document"
-                )
-            else:
-                try:
-                    response = genai.embed_content(
-                        model="models/text-embedding-004",
-                        content=batch,
-                        task_type="retrieval_document"
-                    )
-                except Exception as e_004:
-                    if "not found" in str(e_004).lower() or "not supported" in str(e_004).lower() or "400" in str(e_004).lower() or "404" in str(e_004).lower():
-                        log(f"Advertencia: models/text-embedding-004 no está disponible ({e_004}). Activando fallback automático a models/embedding-001...")
-                        use_fallback_model = True
-                        response = genai.embed_content(
-                            model="models/embedding-001",
-                            content=batch,
-                            task_type="retrieval_document"
-                        )
-                    else:
-                        raise e_004
-            embeddings.extend(response['embedding'])
+            batch_embeddings = get_embeddings(batch, is_query=False)
+            embeddings.extend(batch_embeddings)
         except Exception as e:
-            log(f"Error al generar embeddings para el lote {i}: {e}")
+            log(f"Error crítico al generar embeddings para el lote {i}: {e}")
             sys.exit(1)
             
     log(f"Se calcularon {len(embeddings)} vectores con éxito.")
@@ -302,3 +297,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -27068,6 +27068,7 @@
     |-- docs_prueba
         |-- BancoDigital_Politica_de_Privacidad.pdf
     |-- inbox
+    |-- Preguntas_prueba_ASISMIND.txt
     |-- storage_binario
 |-- embeddings.py
 |-- ingest.py
@@ -27093,3 +27094,5 @@
         |-- schema.sql
     |-- tools
         |-- google.py
+|-- __pycache__
+    |-- embeddings.cpython-311.pyc
