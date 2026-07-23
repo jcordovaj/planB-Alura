@@ -10,7 +10,7 @@ load_dotenv(override=True)
 
 # Configuración de la interfaz Streamlit con optimización de memoria
 st.set_page_config(
-    page_title="AsisMind MVP RAG Based Intelligent Assistant",
+    page_title="AsisMind RAG Assistant MVP",
     page_icon="🤖",
     layout="centered"
 )
@@ -50,7 +50,7 @@ def retrieve_relevant_chunks(user_query, k=3):
         # Formatear el vector para pgvector
         vector_str = "[" + ",".join(map(str, query_embedding)) + "]"
         
-        # Consulta semántica directa usando el operador de distancia de coseno <=> de pgvector
+        # Consulta semántica
         cursor.execute(
             """
             SELECT document 
@@ -76,7 +76,7 @@ def generate_response(system_prompt, user_query):
     try:
         model = genai.GenerativeModel(
             model_name="gemini-2.5-flash",
-            generation_config={"temperature": 0.1}  # Ultra-bajo para máxima fidelidad
+            generation_config={"temperature": 0.1}  
         )
         full_prompt = f"{system_prompt}\n\nPregunta del usuario: {user_query}"
         response = model.generate_content(full_prompt)
@@ -85,13 +85,13 @@ def generate_response(system_prompt, user_query):
         return f"🚨 Error en la API de inferencia de Gemini: {e}"
 
 # Encabezado visual de la interfaz Streamlit
-st.title("🤖 AsisMind MVP")
-st.caption("Alura Challenge - RAG Based Intelligent Assistant")
+st.title("🤖 Chatbot Inteligente - AsisMind")
+st.caption("MVP para el Challenge ALURA - OCI")
 
 # Inicialización de historial de chat con memoria persistente por sesión
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {"role": "assistant", "content": "Bienvenido al asistente de conocimiento empresarial AsisMind. He indexado tus manuales, políticas y reportes. Pregúntame lo que necesites sobre las Políticas de Privacidad de DigitalBank."}
+        {"role": "assistant", "content": "Hola, soy tu asistente de conocimiento interno AsisMind. He indexado manuales, políticas y reportes. Pregúntame lo que necesites sobre la Politica de Privacidad del Banco de Chile."}
     ]
 
 # Renderizar el historial de conversación en la pantalla de Streamlit
@@ -100,7 +100,7 @@ for msg in st.session_state.messages:
         st.markdown(msg["content"])
 
 # Captura de preguntas de usuario
-if user_query := st.chat_input("Escribe tu consulta sobre las Políticas de Privacidad..."):
+if user_query := st.chat_input("Escribe una consulta sobre la política de privacidad del Banco de Chile..."):
     # Renderizar la pregunta del usuario en el chat
     with st.chat_message("user"):
         st.markdown(user_query)
@@ -114,7 +114,7 @@ if user_query := st.chat_input("Escribe tu consulta sobre las Políticas de Priv
         relevant_chunks = retrieve_relevant_chunks(user_query, k=3)
         
         # Consolidar los fragmentos recuperados
-        context = "\n\n".join(relevant_chunks) if relevant_chunks else "No se encontró información relevante."
+        context = "\n\n".join(relevant_chunks) if relevant_chunks else "No se encontraó información relevante."
         
         # Definición del prompt restrictivo con regla estricta de no alucinación (Guardrails)
         system_prompt = f"""
@@ -127,7 +127,7 @@ if user_query := st.chat_input("Escribe tu consulta sobre las Políticas de Priv
         REGLAS CRÍTICAS DE GUARDRAILS:
         - Responde ÚNICAMENTE basándote en el contexto anterior.
         - Si la pregunta NO se puede responder de manera directa con los datos provistos en el contexto (por ejemplo, temas ajenos a la empresa, chistes, deportes, cultura general o información histórica que no esté en los documentos), debes rechazar la respuesta EXACTAMENTE con este mensaje:
-            "{OUT_OF_DOMAIN_REFUSAL}"
+        "{OUT_OF_DOMAIN_REFUSAL}"
         - No inventes, deduzcas ni supongas datos. La precisión de los datos y el rechazo estricto fuera de dominio son obligatorios.
         """
         
@@ -140,4 +140,5 @@ if user_query := st.chat_input("Escribe tu consulta sobre las Políticas de Priv
         
         # Forzar recolección de basura para conservar la RAM en la VM de OCI
         gc.collect()
+
         
